@@ -1,8 +1,0 @@
-{
-  "name": "chatbot-frontend",
-  "version": "1.0.0",
-  "scripts": {
-    "start": "echo 'No server. Just open chat.html in browser'",
-    "build": "echo 'Build step not required. Copying files...' && mkdir -p dist && cp -r * dist/"
-  }
-}
