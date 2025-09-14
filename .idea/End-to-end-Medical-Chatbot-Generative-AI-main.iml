@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="PYTHON_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/Data" />
+      <excludeFolder url="file://$MODULE_DIR$/Generative_AI_Project.egg-info" />
+      <excludeFolder url="file://$MODULE_DIR$/Generative_AI_Project_for_Medical_Domain.egg-info" />
+      <excludeFolder url="file://$MODULE_DIR$/chatbotenv3" />
+      <excludeFolder url="file://$MODULE_DIR$/chatbotvenv/Lib" />
+      <excludeFolder url="file://$MODULE_DIR$/venv" />
+    </content>
+    <orderEntry type="jdk" jdkName="Python 3.11" jdkType="Python SDK" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
