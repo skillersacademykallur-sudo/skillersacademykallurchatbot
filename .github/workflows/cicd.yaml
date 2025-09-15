@@ -51,6 +51,10 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Cleanup old Docker data
+        run: |
+          docker system prune -af --volumes || true
+
       - name: Pull latest image from ECR
         run: |
           docker pull "${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPO }}:latest"
