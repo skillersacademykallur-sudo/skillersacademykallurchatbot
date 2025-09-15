@@ -82,7 +82,7 @@ def chat():
         return "Okay, have a great day! Goodbye!"
 
     if any(greeting in msg.lower() for greeting in greetings):
-        return "Hi, I am Mr.Tikri, the Skillers Academy Kallur AI Assistant.. How can I help you ?"
+        return "Hi, How can I help you ?"
 
     if not msg.isalpha() and len(msg) < 3:  # very short or symbols
         return "I'm sorry, I could not understand that. Could you please type a proper question?"
