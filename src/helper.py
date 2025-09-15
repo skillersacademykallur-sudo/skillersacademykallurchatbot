@@ -10,33 +10,63 @@ print(f"\nHelper Mdoule Started")
 
 
 
-def load_pdf_file(data_folder): 
-    for filename in os.listdir(data_folder): 
-        if filename.lower().endswith(".pdf"): 
-            file_path = os.path.join(data_folder, filename) 
-            print(f"\nProcessing: {filename}") 
+def load_files(data_folder):
+    extracted_texts = {}
 
-            try: 
-                reader = PdfReader(file_path) 
-                text = "\n".join(
-                    page.extract_text() for page in reader.pages if page.extract_text()
-                ) 
+    if not os.path.exists(data_folder):
+        print(f"❌ Error: Folder '{data_folder}' not found!")
+        return extracted_texts
 
-                if not text.strip(): 
-                    print(f"Warning: No text extracted from {filename}. Attempting OCR...") 
-                    images = convert_from_path(file_path) 
-                    text = "\n".join(pytesseract.image_to_string(img) for img in images) 
+    for filename in os.listdir(data_folder):
+        file_path = os.path.join(data_folder, filename)
+        text = ""
 
-                output_text_file = os.path.join(data_folder, filename.replace(".pdf", ".txt")) 
-                with open(output_text_file, "w", encoding="utf-8") as f: 
-                    f.write(text) 
+        print(f"\n📂 Processing: {filename}")
 
-                print(f"Text extracted and saved to: {output_text_file}") 
+        try:
+            # PDF
+            if filename.lower().endswith(".pdf"):
+                reader = PdfReader(file_path)
+                text = "\n".join(page.extract_text() for page in reader.pages if page.extract_text())
 
-            except Exception as e: 
-                print(f"Error processing {filename}: {e}") 
-    
-    return text
+                if not text.strip():
+                    print(f"⚠️ No text in {filename}, attempting OCR...")
+                    images = convert_from_path(file_path)
+                    text = "\n".join(pytesseract.image_to_string(img) for img in images)
+
+            # Word (.docx)
+            elif filename.lower().endswith(".docx"):
+                doc = Document(file_path)
+                text = "\n".join(para.text for para in doc.paragraphs)
+
+            # TXT
+            elif filename.lower().endswith(".txt"):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    text = f.read()
+
+            # CSV
+            elif filename.lower().endswith(".csv"):
+                df = pd.read_csv(file_path)
+                text = df.to_string(index=False)
+
+            else:
+                print(f"ℹ️ Skipped unsupported file type: {filename}")
+                continue
+
+            # Save text file
+            if text.strip():
+                output_text_file = os.path.join(data_folder, os.path.splitext(filename)[0] + ".txt")
+                with open(output_text_file, "w", encoding="utf-8") as f:
+                    f.write(text)
+                print(f"✅ Text extracted and saved to: {output_text_file}")
+                extracted_texts[filename] = text
+            else:
+                print(f"⚠️ No text extracted from {filename}")
+
+        except Exception as e:
+            print(f"❌ Error processing {filename}: {e}")
+
+    return extracted_texts
 
 
 

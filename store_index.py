@@ -1,4 +1,4 @@
-from src.helper import load_pdf_file, text_split, download_hugging_face_embeddings
+from src.helper import load_files, text_split, download_hugging_face_embeddings
 #from pinecone.grpc import PineconeGRPC as Pinecone
 from pinecone import Pinecone
 from pinecone import ServerlessSpec
@@ -22,7 +22,7 @@ print(os.getenv("\nPinecode api_key :, {PINECONE_API_KEY}"))
 
 
 data_folder = "Data/"  # Change this to the correct folder path
-extracted_data = load_pdf_file(data_folder)
+extracted_data = load_files(data_folder)
 text_chunks=text_split(extracted_data)
 embeddings = download_hugging_face_embeddings()
 
