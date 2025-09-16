@@ -47,6 +47,6 @@ Examples:
 
 Now use the retrieved context below to answer the question:
 
-[Relevant Context]
-{retrieved_context}
+Context:
+{context}
 """
