@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from src.prompt import *
 import os
 import re
+from Batch_Store import save_message
 
 
 app = Flask(__name__)
@@ -68,46 +69,42 @@ def clean_llm_response(response_dict):
 def index():
     return render_template('chat.html')
 
-
 @app.route("/get", methods=["GET", "POST"])
 def chat():
-    msg = request.form["msg"]
-    input = msg
-    print(input)
+    msg = request.form.get("msg", "")
+    print("User Message:", msg)
+
     stop_words = ["nothing", "bye", "stop", "exit", "thank you"]
     greetings = ["hello", "hi", "greeting", "hey", "what's up"]
     general_questions = ["how are you", "how are you doing", "how do you feel", "are you okay", "are you fine"]
 
+    # --- Determine bot response ---
     if any(word in msg.lower() for word in stop_words):
-        return "Okay, have a great day! Goodbye!"
-
-    if any(greeting in msg.lower() for greeting in greetings):
-        return "Hi, How can I help you ?"
-
-    if not msg.isalpha() and len(msg) < 3:  # very short or symbols
-        return "I'm sorry, I could not understand that. Could you please type a proper question?"
-
-    if any(question in msg.lower() for question in general_questions):
-        return "I am an AI assistant and cannot feel emotions, but I am functioning properly. Thank you for asking. How can I assist you?"
-
-    result = rag_chain.invoke({"input": msg}) # result is now defined.
-    print("Raw LLM Response:", result)
-    
-    if isinstance(result, dict):
-        response = clean_llm_response(rag_chain.invoke({"input": msg}))
-        print("Raw LLM Response:", response) 
-        print("Response : ", response)
-        return str(response)
-    elif isinstance(result, str):
-        response = response.lstrip("?, ")
-        response = re.sub(r"^\W+", "", response)
-        print("Response : ", response)
-        return str(response)
+        response = "Okay, have a great day! Goodbye!"
+    elif any(greeting in msg.lower() for greeting in greetings):
+        response = "Hi, How can I help you ?"
+    elif not msg.isalpha() and len(msg) < 3:
+        response = "I'm sorry, I could not understand that. Could you please type a proper question?"
+    elif any(question in msg.lower() for question in general_questions):
+        response = "I am an AI assistant and cannot feel emotions, but I am functioning properly. Thank you for asking. How can I assist you?"
     else:
-        return "An error occurred."
+        # Use RAG chain
+        result = rag_chain.invoke({"input": msg})
+        print("Raw LLM Response:", result)
 
+        if isinstance(result, dict):
+            response = clean_llm_response(result)
+        elif isinstance(result, str):
+            response = result.lstrip("?, ")
+            response = re.sub(r"^\W+", "", response)
+        else:
+            response = "An error occurred."
 
+    # --- Save user + bot message (metadata handled in Batch_Store) ---
+    save_message(msg, response)
 
+    print("Final Response:", response)
+    return str(response)
 
 
 if __name__ == '__main__':
