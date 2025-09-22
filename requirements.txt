@@ -23,6 +23,9 @@ pytesseract==0.3.13
 
 # Web framework
 flask==3.0.3
+gunicorn
+boto3
+python-dotenv
 
 # Data handling & ML
 numpy==1.26.4
