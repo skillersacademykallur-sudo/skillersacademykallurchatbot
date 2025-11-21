@@ -1,0 +1,16 @@
+
+=== Sheet: LiveTable ===
+
+ LiveId Description  ObjectId
+      1      Living         1
+      0  Non Living         2
+
+=== Sheet: Living ===
+
+ Livingid  ObjectId ObjectName                                                                                                            Desciption Catrogory Departmentid SubCategoryid Address  Pincode  Country Code  Lat  Long     State   City
+        1         1      Varun Varun is a businessman can buy and sell agriculture products like soyabean and maize in Kuntala and Narsapur G Mandal     Human  Agriculture    Commercial  Kallur   504109            91  NaN   NaN Telangana Nirmal
+
+=== Sheet: NonLiving ===
+
+ Nonlivingid  ObjectId      ObjectName                                                                                                                                                                              Desciption Departmentid SubCategoryid Address  Pincode  Country Code  Lat  Long     State   City
+           1         2 Fertilizer Shop Jahnavi Engencies is the fertilizer shop on the National Highway NH 61. All kinds of fertilizers, pesticides and seeds are available in Kallur Village Opposite to Kallur Power Station  Agriculture      Business  Kallur   504109            91  NaN   NaN Telangana Nirmal

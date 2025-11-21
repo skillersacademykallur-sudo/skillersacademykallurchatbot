@@ -10,7 +10,7 @@ from src.prompt import *
 import os
 import re
 from Batch_Store import save_message
-
+import logging
 
 app = Flask(__name__)
 
@@ -23,15 +23,10 @@ print(f"PINECONE_API_KEY: {PINECONE_API_KEY}")
 print(f"PINECONE_ENV: {PINECONE_ENV}")
 print(f"OPENAI_API_KEY: {OPENAI_API_KEY}")
 
-
-
-
-
-
 embeddings = download_hugging_face_embeddings()
 
 
-index_name = "skillersbot0925"
+index_name = "skillersbot12112025"
 
 # Embed each chunk and upsert the embeddings into your Pinecone index.
 docsearch = PineconeVectorStore.from_existing_index(
@@ -71,39 +66,48 @@ def index():
 
 @app.route("/get", methods=["GET", "POST"])
 def chat():
-    msg = request.form.get("msg", "")
+    msg = request.form.get("msg", "").strip()
+    logging.info(f"User Message:: {msg}")
     print("User Message:", msg)
 
     stop_words = ["nothing", "bye", "stop", "exit", "thank you"]
-    greetings = ["hello", "hi", "greeting", "hey", "what's up"]
+    greetings = ["hello", "hi", "greetings", "hey", "what's up"]
     general_questions = ["how are you", "how are you doing", "how do you feel", "are you okay", "are you fine"]
+
+    def is_pure_greeting(text):
+        return text.lower().strip() in greetings
 
     # --- Determine bot response ---
     if any(word in msg.lower() for word in stop_words):
         response = "Okay, have a great day! Goodbye!"
-    elif any(greeting in msg.lower() for greeting in greetings):
+
+    elif is_pure_greeting(msg):
         response = "Hi, How can I help you ?"
-    elif not msg.isalpha() and len(msg) < 3:
-        response = "I'm sorry, I could not understand that. Could you please type a proper question?"
+
     elif any(question in msg.lower() for question in general_questions):
         response = "I am an AI assistant and cannot feel emotions, but I am functioning properly. Thank you for asking. How can I assist you?"
-    else:
-        # Use RAG chain
+
+    # detect if user is asking a real question → skip greeting
+    elif any(q in msg.lower() for q in ["where", "what", "when", "who", "how", "which", "?"]):
         result = rag_chain.invoke({"input": msg})
-        print("Raw LLM Response:", result)
+        logging.info(f"Raw LLM Response: {result}")
 
         if isinstance(result, dict):
             response = clean_llm_response(result)
-        elif isinstance(result, str):
-            response = result.lstrip("?, ")
-            response = re.sub(r"^\W+", "", response)
         else:
-            response = "An error occurred."
+            response = result
 
-    # --- Save user + bot message (metadata handled in Batch_Store) ---
+    elif not msg.isalpha() and len(msg) < 3:
+        response = "I'm sorry, I could not understand that. Could you please type a proper question?"
+
+    else:
+        result = rag_chain.invoke({"input": msg})
+        logging.info(f"Raw LLM Response: {result}")
+        response = clean_llm_response(result)
+
     save_message(msg, response)
-
     print("Final Response:", response)
+    logging.info(f"Final Response: {response}")
     return str(response)
 
 

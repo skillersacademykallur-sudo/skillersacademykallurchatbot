@@ -1,0 +1,43 @@
+
+=== Sheet: LiveTable ===
+
+ Primarytableid  LiveId Description  ObjectId                     ObjectName
+              1       1      Living         1                          Varun
+              2       0  Non Living         1        Jahnavi Fertilizer Shop
+              3       0  Non Living         2            Vasavi Institutions
+              4       0  Non Living         3                     SMS School
+              5       0  Non Living         4            Sri Sai Baba Temple
+              6       1      Living         2                     Dr Bojanna
+              7       1      Living         3                      Dr Kranti
+              8       1      Living         4                      Dr Srujan
+              9       0  Non Living         5                     EMG Hotels
+             10       0  Non Living        10                 Kallur Village
+             11       0  Non Living        11          Burugupalli K Village
+             12       0  Non Living         6 Siddevashvara Temple Dongurgao
+             13       0  Non Living         7       Sri Raghavendra Agencies
+
+=== Sheet: Living ===
+
+ LivingObjectsId ObjectName                                                                                                            Desciption Catrogory Name Department Name SubCategory Name Address  Pincode  Country Code  Lat  Long     State   City
+               1      Varun Varun is a businessman can buy and sell agriculture products like soyabean and maize in Kuntala and Narsapur G Mandal          Human     Agriculture       Commercial  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+               2 Dr Bojanna                                                               One of the Reputed medical professional  in Kallur Area          Human         Medical       Commercial  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+               3  Dr Kranti                                He is form Donguragam Village. One of the Reputed medical professional  in Kallur Area          Human         Medical       Commercial  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+               4  Dr Srujan                                   He is from Arli K  Village. One of the Reputed medical professional  in Kallur Area          Human         Medical       Commercial  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+               5        NaN                                                                                                                   NaN            NaN             NaN              NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+               6        NaN                                                                                                                   NaN            NaN             NaN              NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+               7        NaN                                                                                                                   NaN            NaN             NaN              NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+
+=== Sheet: NonLiving ===
+
+ Nonlivingobjectid                     ObjectName                                                                                                                                                                              Desciption Departmentid SubCategoryid Address  Pincode  Country Code  Lat  Long     State   City
+                 1        Jahnavi Fertilizer Shop Jahnavi Engencies is the fertilizer shop on the National Highway NH 61. All kinds of fertilizers, pesticides and seeds are available in Kallur Village Opposite to Kallur Power Station  Agriculture      Business  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+                 2            Vasavi Institutions                       Vasavi Institutions is one of  the first private educational  instution started in Kallur Village around 2005 having educational services from LKG to Graduation.   Education       Business  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+                 3                     SMS School                                                                        SMS School is available in Kallur Village, Kuntala Mandal and it is famous  for its ranks in  competative exams.   Education       Business  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+                 4            Sri Sai Baba Temple                                                                                 Sri Sai Baba Temple in Kallur is famous  devotional destination for Telangana and Maharashtra devotees.    Endowment    Devotional  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+                 5                     EMG Hotels                       EMG Hotels  are known for its history of hotel  services from decades. They have multiple businesses form  which hotels are available in  Kallur and Arli X Road.  Hospitality      Business  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+                 6 Siddevashvara Temple Dongurgao                                                      Siddeshvara temple in Dongargao Village near Kallur is on the bank of suddavagu is the peaceful destination for God Shiva devotees    Endowment    Devotional  Kallur 504109.0          91.0  NaN   NaN Telangana Nirmal
+                 7       Sri Raghavendra Agencies                                               Sri Raghavendra  Agencies in  Kallur Village is one of the oldest shop, known for its credibility and service to all near by 50 villages.          NaN           NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+                 8                            NaN                                                                                                                                                                                     NaN          NaN           NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+                 9                            NaN                                                                                                                                                                                     NaN          NaN           NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+                10                            NaN                                                                                                                                                                                     NaN          NaN           NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN
+                11                            NaN                                                                                                                                                                                     NaN          NaN           NaN     NaN      NaN           NaN  NaN   NaN       NaN    NaN

@@ -7,6 +7,21 @@ from flask import request
 import os
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
+import os
+import logging
+
+LOG_DIR = r"C:\Storage\DS\Projects\SkillersChatbotlogfiles"
+os.makedirs(LOG_DIR, exist_ok=True)  # create folder if it doesn’t exist
+
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
+
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    encoding="utf-8"
+)
+
 
 # --- Load environment variables ---
 load_dotenv()
@@ -31,6 +46,22 @@ BATCH_SIZE = 10        # Flush after 10 messages
 FLUSH_INTERVAL = 60    # Background flush interval in seconds
 
 # --- Flush Function ---
+LOCAL_JSON_DIR = os.path.join(LOG_DIR, "chat_batches")
+os.makedirs(LOCAL_JSON_DIR, exist_ok=True)
+def flush_to_local(batch):
+    """Flush batch to local folder as JSON."""
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
+    file_path = os.path.join(LOCAL_JSON_DIR, f"{timestamp}.json")
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(batch, f, indent=2)
+        logging.info(f"Flushed {len(batch)} messages to {file_path}")
+    except Exception as e:
+        logging.error(f"Local JSON Save Error: {e}")
+
+
 def flush_to_s3():
     """Flush buffered messages to S3 safely."""
     global message_buffer
@@ -44,7 +75,7 @@ def flush_to_s3():
         # Copy and clear buffer
         batch = message_buffer.copy()
         message_buffer.clear()
-
+    flush_to_local(batch)
     try:
         s3.put_object(
             Bucket=S3_BUCKET_NAME,
@@ -52,10 +83,10 @@ def flush_to_s3():
             Body=json.dumps(batch, indent=2),
             ContentType="application/json"
         )
-        print(f"✅ Flushed {len(batch)} messages to s3://{S3_BUCKET_NAME}/{key}")
+        logging.info(f"Flushed {len(batch)} messages to s3://{S3_BUCKET_NAME}/{key}")
 
     except ClientError as e:
-        print(f"[S3 Upload Error] {e}")
+        logging.error(f"S3 Upload Error: {e}")
         # Re-add messages to buffer for next attempt
         with buffer_lock:
             message_buffer = batch + message_buffer
@@ -92,4 +123,4 @@ periodic_flush()
 # --- Final Flush on Shutdown ---
 atexit.register(flush_to_s3)
 
-print("✅ Batch flush system initialized and running in background...")
+logging.info("Batch flush system initialized and running in background...")

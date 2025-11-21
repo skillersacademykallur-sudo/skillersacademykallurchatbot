@@ -41,3 +41,4 @@ tqdm==4.66.5
 python-docx==1.1.2   # added for .docx support
 
 # Built-in but listed for clarity
+openpyxl

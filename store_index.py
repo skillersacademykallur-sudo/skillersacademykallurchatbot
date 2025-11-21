@@ -35,7 +35,9 @@ pc = Pinecone(api_key=pc_api_key)
 
 print(f"Pinecone Details: '{pc}' ")
 
-index_name = "medicalbot2"
+#index_name = "medicalbot2" # commented on 12112025 to add excel embeddings
+index_name = "skillersbot12112025"
+
 
 try:
     pc.create_index(

@@ -62,12 +62,25 @@ border-radius: 0 0 15px 15px !important;
 	color: white !important;
 	cursor: pointer;
 }
+.input-group{
+    display: flex;
+    align-items: stretch; /* makes children match height */
+}
+
+.input-group-append{
+    display: flex;
+}
+
 .send_btn{
-	border-radius: 0 15px 15px 0 !important;
-	background-color: rgba(0,0,0,0.3) !important;
-	border:0 !important;
-	color: white !important;
-	cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 60px; /* match .type_msg */
+    border-radius: 0 15px 15px 0 !important;
+    background-color: rgba(0,0,0,0.3) !important;
+    color: white !important;
+    padding: 0 !important;
 }
 .search_btn{
 	border-radius: 0 15px 15px 0 !important;
