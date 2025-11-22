@@ -1,126 +1,159 @@
 import boto3
 import json
+import os
 import threading
-import atexit
 from datetime import datetime
 from flask import request
-import os
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
-import os
 import logging
 
-LOG_DIR = r"C:\Storage\DS\Projects\SkillersChatbotlogfiles"
-os.makedirs(LOG_DIR, exist_ok=True)  # create folder if it doesn’t exist
+# --- Setup Logging ---
+# Ensure these environment variables are set correctly, or use absolute paths
+LOG_DIR = os.getenv("LOG_BASE_DIR", r"C:\Storage\DS\Projects\SkillersChatbotlogfiles")
+CHAT_DIR = os.path.join(LOG_DIR, "daily_chats")
+USER_DIR = os.path.join(LOG_DIR, "user_profiles")
 
-LOG_FILE = os.path.join(LOG_DIR, "app.log")
+# Create directories if they don't exist
+os.makedirs(CHAT_DIR, exist_ok=True)
+os.makedirs(USER_DIR, exist_ok=True)
 
+# Configure System Logger
 logging.basicConfig(
-    filename=LOG_FILE,
+    filename=os.path.join(LOG_DIR, "system.log"),
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     encoding="utf-8"
 )
 
-
-# --- Load environment variables ---
+# Load environment variables (AWS credentials, bucket name, etc.)
 load_dotenv()
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.getenv("AWS_REGION")
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-
-# --- Initialize S3 client ---
+# --- S3 Client ---
 s3 = boto3.client(
     's3',
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_REGION
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION")
 )
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-# --- Global Message Buffer ---
-message_buffer = []
-buffer_lock = threading.Lock()
-BATCH_SIZE = 10        # Flush after 10 messages
-FLUSH_INTERVAL = 60    # Background flush interval in seconds
+# Sanity check for S3 bucket name
+if not S3_BUCKET_NAME:
+    logging.warning("S3_BUCKET_NAME is not set in environment variables. S3 sync will fail.")
 
-# --- Flush Function ---
-LOCAL_JSON_DIR = os.path.join(LOG_DIR, "chat_batches")
-os.makedirs(LOCAL_JSON_DIR, exist_ok=True)
-def flush_to_local(batch):
-    """Flush batch to local folder as JSON."""
 
-    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
-    file_path = os.path.join(LOCAL_JSON_DIR, f"{timestamp}.json")
+def upload_to_s3(local_path, s3_key):
+    """Helper to upload file to S3 with retry logic."""
+    MAX_RETRIES = 3
+    for attempt in range(MAX_RETRIES):
+        try:
+            s3.upload_file(local_path, S3_BUCKET_NAME, s3_key)
+            logging.info(f"Synced to S3: {s3_key}")
+            return
+        except ClientError as e:
+            logging.error(f"S3 Upload Failed for {s3_key} (Attempt {attempt + 1}): {e}")
+            if attempt < MAX_RETRIES - 1:
+                # Simple backoff logic (e.g., wait 2 seconds before retrying)
+                threading._sleep(2)
+            else:
+                logging.error(f"Failed to upload {s3_key} to S3 after {MAX_RETRIES} attempts.")
+        except Exception as e:
+            logging.error(f"Unexpected error during S3 upload for {s3_key}: {e}")
+            return
 
+
+# --- 1. SAVE USER PROFILE (One time per registration) ---
+def save_user_info(user_data):
+    """
+    Saves user registration details to a specific file:
+    Filename: Profile_{Name}_{Phone}.json
+    """
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(batch, f, indent=2)
-        logging.info(f"Flushed {len(batch)} messages to {file_path}")
+        # Construct Filename based on name and phone (assumed to be unique at registration)
+        safe_name = user_data.get("name", "Unknown").replace(" ", "_")
+        safe_phone = user_data.get("phone", "NoNum")
+        filename = f"Profile_{safe_name}_{safe_phone}.json"
+
+        local_path = os.path.join(USER_DIR, filename)
+        s3_key = f"user_profiles/{filename}"
+
+        # Write Local
+        with open(local_path, "w", encoding="utf-8") as f:
+            json.dump(user_data, f, indent=2)
+
+        # Upload S3 (Threaded to not block UI)
+        if S3_BUCKET_NAME:
+            threading.Thread(target=upload_to_s3, args=(local_path, s3_key)).start()
+        else:
+            logging.warning(f"S3 sync skipped for {filename} because bucket name is missing.")
+
+        logging.info(f"User profile saved: {filename}")
+
     except Exception as e:
-        logging.error(f"Local JSON Save Error: {e}")
+        logging.error(f"Error saving user profile: {e}")
 
 
-def flush_to_s3():
-    """Flush buffered messages to S3 safely."""
-    global message_buffer
-    with buffer_lock:
-        if not message_buffer:
-            return  # Nothing to write
+# --- 2. SAVE CHAT MESSAGE (Appends to Daily Session File) ---
+def save_message(user_id, user_name, user_phone, user_msg, bot_response):
+    """
+    Reads existing daily file, appends message, saves back.
+    Filename: Chat_{user_id}_{YYYY-MM-DD}.json
 
-        timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
-        key = f"chat_batches/{timestamp}.json"
-
-        # Copy and clear buffer
-        batch = message_buffer.copy()
-        message_buffer.clear()
-    flush_to_local(batch)
+    The critical fix is to use the immutable 'user_id' as the main identifier
+    to ensure consistency when retrieving 'existing chats'.
+    """
     try:
-        s3.put_object(
-            Bucket=S3_BUCKET_NAME,
-            Key=key,
-            Body=json.dumps(batch, indent=2),
-            ContentType="application/json"
-        )
-        logging.info(f"Flushed {len(batch)} messages to s3://{S3_BUCKET_NAME}/{key}")
+        # 1. Construct Unique Daily Filename
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        safe_name = user_name.replace(" ", "_")
 
-    except ClientError as e:
-        logging.error(f"S3 Upload Error: {e}")
-        # Re-add messages to buffer for next attempt
-        with buffer_lock:
-            message_buffer = batch + message_buffer
+        # --- FIX APPLIED HERE ---
+        # Use the full, stable user_id to guarantee the same file path every time.
+        # This prevents the creation of new files when 'user_phone' is missing
+        # or inconsistent, which was the root cause of the bug.
+        user_file_id = user_id.replace("-", "_")  # Sanitize the ID for the filename
 
-# --- Save Message ---
-def save_message(user_msg, bot_response):
-    """Add message + metadata to buffer, flush if needed."""
-    global message_buffer
-    data = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "user_ip": request.remote_addr,
-        "user_agent": request.headers.get("User-Agent"),
-        "endpoint": request.path,
-        "user_message": user_msg,
-        "bot_response": bot_response,
-    }
+        # New, robust filename based on the canonical user ID and date
+        filename = f"Chat_{user_file_id}_{today}.json"
 
-    with buffer_lock:
-        message_buffer.append(data)
-        if len(message_buffer) >= BATCH_SIZE:
-            flush_to_s3()
+        local_path = os.path.join(CHAT_DIR, filename)
+        s3_key = f"daily_chats/{filename}"
 
-# --- Background Flush Thread ---
-def periodic_flush():
-    """Flush buffer periodically in the background."""
-    flush_to_s3()
-    timer = threading.Timer(FLUSH_INTERVAL, periodic_flush)
-    timer.daemon = True
-    timer.start()
+        # 2. Load Existing Data (if any)
+        current_data = []
+        if os.path.exists(local_path):
+            try:
+                with open(local_path, "r", encoding="utf-8") as f:
+                    current_data = json.load(f)
+            except json.JSONDecodeError:
+                # Handle corrupted or empty JSON file by starting a new list
+                logging.warning(f"Corrupted or empty file detected at {local_path}. Starting new chat log.")
+                current_data = []
 
-# Start background flushing
-periodic_flush()
+        # 3. Append New Message
+        new_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "user_msg": user_msg,
+            "bot_response": bot_response,
+            # Optionally include metadata for debugging
+            "user_name_at_time": user_name,
+            "user_phone_at_time": user_phone
+        }
+        current_data.append(new_entry)
 
-# --- Final Flush on Shutdown ---
-atexit.register(flush_to_s3)
+        # 4. Write Back to Local
+        with open(local_path, "w", encoding="utf-8") as f:
+            json.dump(current_data, f, indent=2)
 
-logging.info("Batch flush system initialized and running in background...")
+        logging.info(f"Chat message appended locally to: {filename}")
+
+        # 5. Sync to S3 (Threaded)
+        if S3_BUCKET_NAME:
+            threading.Thread(target=upload_to_s3, args=(local_path, s3_key)).start()
+        else:
+            logging.warning(f"S3 sync skipped for {filename} because bucket name is missing.")
+
+
+    except Exception as e:
+        logging.error(f"Error saving chat message: {e}")

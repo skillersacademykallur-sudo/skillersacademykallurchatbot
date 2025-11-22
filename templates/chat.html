@@ -1,4 +1,3 @@
-<!-- Updated Chatbot HTML with File Upload + Voice Recording -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,55 +8,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}"/>
-
-    <style>
-    /* ---------------------- UPDATED CSS BELOW ---------------------- */
-
-    /* File + Voice Button Container */
-    .action_buttons {
-        display: flex;
-        align-items: center;
-        margin-right: 10px;
-        gap: 10px;
-    }
-
-    .action_btn {
-        height: 40px;
-        width: 40px;
-        border-radius: 50%;
-        background: rgba(255,255,255,0.15);
-        border: 1px solid rgba(255,255,255,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-
-    .action_btn:hover {
-        background: rgba(255,255,255,0.25);
-    }
-
-    #audioRecordBtn.recording {
-        background: #ff4757 !important;
-        animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(255,71,87,0.6); }
-        70% { box-shadow: 0 0 10px 12px rgba(255,71,87,0); }
-        100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); }
-    }
-
-    /* Display attached file */
-    .file_preview {
-        color: white;
-        font-size: 13px;
-        margin-top: 5px;
-        opacity: 0.8;
-    }
-    </style>
 </head>
 
 <body>
@@ -74,7 +24,7 @@
                             </div>
                             <div class="user_info ml-3">
                                 <span>Skillers Academy</span>
-                                <p>Mr. Tikri AI Assistant</p>
+                                <p id="welcome-text">Mr.Tikri AI Assistant</p>
                             </div>
                         </div>
                     </div>
@@ -85,7 +35,7 @@
                                 <img src="{{ url_for('static', filename='images/profile.png') }}" class="rounded-circle user_img_msg">
                             </div>
                             <div class="msg_cotainer">
-                                Hello! I am Mr. Tikri. Ask me anything!
+                                <span id="botStartMsg">Hello! I am Mr.Tikri. How can I help?</span>
                                 <span class="msg_time">Now</span>
                             </div>
                         </div>
@@ -96,11 +46,9 @@
                         <form id="messageArea" class="input-group" enctype="multipart/form-data">
 
                             <div class="action_buttons">
-                                <!-- File Upload Button -->
                                 <label for="fileInput" class="action_btn"><i class="fas fa-paperclip"></i></label>
                                 <input id="fileInput" type="file" name="file" style="display:none;">
 
-                                <!-- Voice Recording Button -->
                                 <div id="audioRecordBtn" class="action_btn"><i class="fas fa-microphone"></i></div>
                             </div>
 
@@ -117,77 +65,166 @@
         </div>
     </div>
 
+    <div class="modal fade" id="registerModal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" style="background: rgba(40, 40, 40, 0.95); color: white; border-radius: 20px;">
+          <div class="modal-header border-0">
+            <h5 class="modal-title">Welcome! Let's get to know you.</h5>
+          </div>
+          <div class="modal-body">
+            <form id="regForm">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="regName" class="form-control" required placeholder="Enter your name">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" id="regPhone" class="form-control" required placeholder="Enter your phone">
+                </div>
+                <div class="form-group">
+                    <label>Email (Optional)</label>
+                    <input type="email" id="regEmail" class="form-control" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <div class="input-group">
+                        <input type="text" id="regCity" class="form-control" required placeholder="City/Area">
+                        <div class="input-group-append">
+                            <button class="btn btn-info" type="button" id="geoBtn"><i class="fas fa-map-marker-alt"></i> Auto</button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="regLat">
+                    <input type="hidden" id="regLon">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" style="border-radius: 20px;">Start Chatting</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         $(document).ready(function() {
+
+            // --- UI Helper ---
+            function updateUI(userName) {
+                if(userName) {
+                    $("#welcome-text").text("Hi " + userName + "!, I'm Mr.Tikri here to help you");
+                    $("#botStartMsg").text("Hello " + userName + "! How can I help?");
+                }
+            }
+
+            // --- Cookie Helper ---
+            function getCookie(name) {
+                let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+                return match ? match[2] : null;
+            }
+
+            // --- LOGIC: If 'user_id' cookie is missing, SHOW MODAL ---
+            // This fixes the issue: if browser is cleared or session expired, it asks again.
+            if (!getCookie("user_id")) {
+                $("#registerModal").modal("show");
+            } else {
+                let name = getCookie("user_name");
+                updateUI(name);
+            }
+
+            // --- Geolocation ---
+            $("#geoBtn").click(function() {
+                if (navigator.geolocation) {
+                    $(this).html('<i class="fas fa-spinner fa-spin"></i>');
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        $("#regLat").val(position.coords.latitude);
+                        $("#regLon").val(position.coords.longitude);
+
+                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            let city = data.address.city || data.address.town || data.address.village || "Detected Location";
+                            $("#regCity").val(city);
+                            $("#geoBtn").html('<i class="fas fa-check"></i>');
+                        });
+                    });
+                } else {
+                    alert("Browser does not support Geolocation");
+                }
+            });
+
+            // --- Registration Submit ---
+            $("#regForm").submit(function(e) {
+                e.preventDefault();
+                let data = {
+                    name: $("#regName").val(),
+                    phone: $("#regPhone").val(),
+                    email: $("#regEmail").val(),
+                    city: $("#regCity").val(),
+                    lat: $("#regLat").val(),
+                    lon: $("#regLon").val()
+                };
+
+                $.post("/register-user", data, function(response) {
+                    $("#registerModal").modal("hide");
+                    updateUI(data.name);
+                }).fail(function() {
+                    alert("Error registering. Try again.");
+                });
+            });
+
+            // --- Chat & File Logic ---
             function smoothScroll() {
                 document.getElementById("scroll-anchor").scrollIntoView({ behavior: "smooth", block: "end" });
             }
 
-            // Show file preview
             $("#fileInput").on("change", function() {
-                const file = this.files[0];
-                if (file) {
-                    $("#filePreview").text("📎 Attached: " + file.name);
-                }
+                if (this.files[0]) $("#filePreview").text("📎 Attached: " + this.files[0].name);
             });
 
-            // ---------------------- AUDIO RECORDING ----------------------
-            let recorder, audioBlob;
-            let isRecording = false;
-
+            let recorder, audioBlob, isRecording = false;
             $("#audioRecordBtn").click(async function () {
                 if (!isRecording) {
-                    // Start Recording
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     recorder = new MediaRecorder(stream);
-
                     let chunks = [];
                     recorder.ondataavailable = (e) => chunks.push(e.data);
                     recorder.onstop = () => audioBlob = new Blob(chunks, { type: "audio/webm" });
-
                     recorder.start();
                     isRecording = true;
                     $(this).addClass("recording");
                 } else {
-                    // Stop Recording
                     recorder.stop();
                     isRecording = false;
                     $(this).removeClass("recording");
-                    $("#filePreview").text("🎤 Voice message ready to send");
+                    $("#filePreview").text("🎤 Voice message ready");
                 }
             });
 
-            // ---------------------- MESSAGE SEND ----------------------
             $("#messageArea").on("submit", function(event) {
                 event.preventDefault();
+                const rawText = $("#text").val().trim();
+                const file = $("#fileInput")[0].files[0];
+                if (!rawText && !file && !audioBlob) return;
 
                 const date = new Date();
                 const str_time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                const rawText = $("#text").val().trim();
-                const file = $("#fileInput")[0].files[0];
 
-                if (!rawText && !file && !audioBlob) return;
-
-                // Show user bubble
-                let userBubble = rawText || (file ? "📎 Sent file: " + file.name : "🎤 Sent voice message");
-
-                const userHtml = `
-                <div class="d-flex justify-content-end mb-4">
-                    <div class="msg_cotainer_send">${userBubble}
-                    <span class="msg_time_send">${str_time}</span></div>
-                    <div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div>
-                </div>`;
+                let userBubble = rawText || (file ? "📎 Sent file" : "🎤 Sent voice");
+                let userHtml = `<div class="d-flex justify-content-end mb-4"><div class="msg_cotainer_send">${userBubble}<span class="msg_time_send">${str_time}</span></div><div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div></div>`;
 
                 $(userHtml).insertBefore("#scroll-anchor");
                 smoothScroll();
 
-                // Prepare form data
                 let formData = new FormData();
                 formData.append("msg", rawText);
                 if (file) formData.append("file", file);
-                if (audioBlob) formData.append("audio", audioBlob, "voice_message.webm");
+                if (audioBlob) formData.append("audio", audioBlob, "voice.webm");
+
+                $("#text").val("");
+                $("#fileInput").val("");
+                $("#filePreview").text("");
+                audioBlob = null;
 
                 $.ajax({
                     url: "/get",
@@ -196,26 +233,13 @@
                     processData: false,
                     contentType: false,
                     success: function(data) {
-                        const botHtml = `
-                        <div class="d-flex justify-content-start mb-4">
-                            <div class="img_cont_msg"><img src="{{ url_for('static', filename='images/profile.png') }}" class="rounded-circle user_img_msg"></div>
-                            <div class="msg_cotainer">${data}<span class="msg_time">${str_time}</span></div>
-                        </div>`;
-
+                        let botHtml = `<div class="d-flex justify-content-start mb-4"><div class="img_cont_msg"><img src="{{ url_for('static', filename='images/profile.png') }}" class="rounded-circle user_img_msg"></div><div class="msg_cotainer">${data}<span class="msg_time">${str_time}</span></div></div>`;
                         $(botHtml).insertBefore("#scroll-anchor");
                         smoothScroll();
                     }
                 });
-
-                // Reset fields
-                $("#text").val("");
-                $("#fileInput").val("");
-                audioBlob = null;
-                $("#filePreview").text("");
             });
         });
     </script>
 </body>
 </html>
-
-<!-- Backend additions will follow -->
