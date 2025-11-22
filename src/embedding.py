@@ -1,6 +1,7 @@
 import os
 import time
-import shutil  # Added for cleaning up corrupt folders
+import shutil
+import json  # *** NEW: Import JSON library ***
 import pandas as pd
 from PyPDF2 import PdfReader
 from pdf2image import convert_from_path
@@ -16,14 +17,11 @@ from dotenv import load_dotenv
 from huggingface_hub import snapshot_download
 
 # --- 1. SETUP & CONFIGURATION ---
-# Define absolute paths (Crucial for automation)
 BASE_DIR = r"C:\Storage\DS\Projects\skillersacademykallurchatbot"
 DATA_FOLDER = os.path.join(BASE_DIR, "Data")
 ENV_PATH = os.path.join(BASE_DIR, ".env")
-# Define a permanent folder for the model to sit in
 LOCAL_MODEL_PATH = os.path.join(BASE_DIR, "models", "all-MiniLM-L12-v2")
 
-# Load Environment Variables
 load_dotenv(ENV_PATH)
 
 PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
@@ -35,19 +33,10 @@ print(f"Starting Daily Update at {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 # --- 2. ROBUST & OPTIMIZED MODEL LOADING FUNCTION ---
 def get_embeddings_model():
-    """
-    Checks if model exists locally and is complete.
-    If yes, load it.
-    If no, clean up, download ONLY the necessary files, then load it.
-    """
     model_repo = "sentence-transformers/all-MiniLM-L12-v2"
 
-    # Check if the folder exists AND has enough files (heuristic to detect incomplete download)
-    # A complete model usually has > 5 files.
     if not os.path.exists(LOCAL_MODEL_PATH) or len(os.listdir(LOCAL_MODEL_PATH)) < 5:
         print(f"⚠️ Model missing or incomplete at {LOCAL_MODEL_PATH}")
-
-        # Clean up potential corrupt/partial folder before downloading
         if os.path.exists(LOCAL_MODEL_PATH):
             print("🧹 Removing partial/corrupt model folder...")
             shutil.rmtree(LOCAL_MODEL_PATH)
@@ -58,7 +47,6 @@ def get_embeddings_model():
                 repo_id=model_repo,
                 local_dir=LOCAL_MODEL_PATH,
                 local_dir_use_symlinks=False,
-                # THIS LINE SAVES TIME: Ignores heavy files you don't need (TensorFlow, Rust, ONNX)
                 ignore_patterns=["*.h5", "*.ot", "*.onnx", "*.msgpack", "rust_model.ot", "tf_model.h5"]
             )
             print("✅ Download complete.")
@@ -68,11 +56,10 @@ def get_embeddings_model():
     else:
         print(f"✅ Local model found at {LOCAL_MODEL_PATH}")
 
-    # Load the model from the local folder
     print("🔌 Loading model into memory...")
     return HuggingFaceEmbeddings(
         model_name=LOCAL_MODEL_PATH,
-        model_kwargs={"device": "cpu"}  # Change to 'cuda' if you have a GPU
+        model_kwargs={"device": "cpu"}
     )
 
 
@@ -120,6 +107,14 @@ else:
                     text_parts.append(df.to_string(index=False))
                 text = "\n".join(text_parts)
 
+            # *** NEW: JSON HANDLING ***
+            elif filename.lower().endswith(".json"):
+                print(f"Processing JSON: {filename}")
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Convert JSON object to a string with indentation for better readability by LLM
+                    text = json.dumps(data, indent=2)
+
             if text.strip():
                 all_text += f"\n\n=== FILE: {filename} ===\n{text}"
 
@@ -142,13 +137,9 @@ text_chunks = text_splitter.split_text(all_text)
 print(f"✅ Total chunks created: {len(text_chunks)}")
 
 # --- 5. EMBEDDING & PINECONE UPSERT ---
-# Initialize Embeddings using our Robust Function
 embeddings = get_embeddings_model()
-
-# Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
-# Check/Create Index
 existing_indexes = [index.name for index in pc.list_indexes()]
 if INDEX_NAME not in existing_indexes:
     print(f"Creating index: {INDEX_NAME}")
@@ -159,10 +150,8 @@ if INDEX_NAME not in existing_indexes:
         spec=ServerlessSpec(cloud="aws", region="us-east-1")
     )
 
-# Prepare documents
 documents = [LangChainDocument(page_content=chunk) for chunk in text_chunks]
 
-# Upsert
 print("📤 Upserting to Pinecone...")
 PineconeVectorStore.from_documents(
     documents=documents,

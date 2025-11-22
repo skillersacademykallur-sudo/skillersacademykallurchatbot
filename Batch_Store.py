@@ -3,20 +3,28 @@ import json
 import os
 import threading
 from datetime import datetime
-from flask import request
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
 import logging
 
-# --- Setup Logging ---
-# Ensure these environment variables are set correctly, or use absolute paths
-LOG_DIR = os.getenv("LOG_BASE_DIR", r"C:\Storage\DS\Projects\SkillersChatbotlogfiles")
+# --- PATH CONFIGURATION ---
+CURRENT_DIR = os.getcwd()
+
+# 1. Standard Log Paths (For record keeping)
+LOG_DIR = os.path.join(CURRENT_DIR, "chatbot_data")
 CHAT_DIR = os.path.join(LOG_DIR, "daily_chats")
 USER_DIR = os.path.join(LOG_DIR, "user_profiles")
+SERVICE_DIR = os.path.join(LOG_DIR, "service_requests")
+
+# 2. RAG Data Path (For embedding.py)
+# This is the specific folder you requested
+RAG_DATA_DIR = r"C:\Storage\DS\Projects\skillersacademykallurchatbot\Data"
 
 # Create directories if they don't exist
 os.makedirs(CHAT_DIR, exist_ok=True)
 os.makedirs(USER_DIR, exist_ok=True)
+os.makedirs(SERVICE_DIR, exist_ok=True)
+os.makedirs(RAG_DATA_DIR, exist_ok=True)  # Ensure the Data folder exists
 
 # Configure System Logger
 logging.basicConfig(
@@ -26,7 +34,6 @@ logging.basicConfig(
     encoding="utf-8"
 )
 
-# Load environment variables (AWS credentials, bucket name, etc.)
 load_dotenv()
 
 # --- S3 Client ---
@@ -38,39 +45,31 @@ s3 = boto3.client(
 )
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-# Sanity check for S3 bucket name
-if not S3_BUCKET_NAME:
-    logging.warning("S3_BUCKET_NAME is not set in environment variables. S3 sync will fail.")
-
 
 def upload_to_s3(local_path, s3_key):
     """Helper to upload file to S3 with retry logic."""
+    if not S3_BUCKET_NAME:
+        return
+
     MAX_RETRIES = 3
     for attempt in range(MAX_RETRIES):
         try:
             s3.upload_file(local_path, S3_BUCKET_NAME, s3_key)
             logging.info(f"Synced to S3: {s3_key}")
+            print(f"✅ Uploaded to S3: {s3_key}")
             return
         except ClientError as e:
-            logging.error(f"S3 Upload Failed for {s3_key} (Attempt {attempt + 1}): {e}")
+            logging.error(f"S3 Upload Failed: {e}")
             if attempt < MAX_RETRIES - 1:
-                # Simple backoff logic (e.g., wait 2 seconds before retrying)
                 threading._sleep(2)
-            else:
-                logging.error(f"Failed to upload {s3_key} to S3 after {MAX_RETRIES} attempts.")
         except Exception as e:
-            logging.error(f"Unexpected error during S3 upload for {s3_key}: {e}")
+            logging.error(f"Unexpected S3 error: {e}")
             return
 
 
-# --- 1. SAVE USER PROFILE (One time per registration) ---
+# --- 1. SAVE USER PROFILE ---
 def save_user_info(user_data):
-    """
-    Saves user registration details to a specific file:
-    Filename: Profile_{Name}_{Phone}.json
-    """
     try:
-        # Construct Filename based on name and phone (assumed to be unique at registration)
         safe_name = user_data.get("name", "Unknown").replace(" ", "_")
         safe_phone = user_data.get("phone", "NoNum")
         filename = f"Profile_{safe_name}_{safe_phone}.json"
@@ -78,82 +77,98 @@ def save_user_info(user_data):
         local_path = os.path.join(USER_DIR, filename)
         s3_key = f"user_profiles/{filename}"
 
-        # Write Local
         with open(local_path, "w", encoding="utf-8") as f:
             json.dump(user_data, f, indent=2)
 
-        # Upload S3 (Threaded to not block UI)
         if S3_BUCKET_NAME:
             threading.Thread(target=upload_to_s3, args=(local_path, s3_key)).start()
-        else:
-            logging.warning(f"S3 sync skipped for {filename} because bucket name is missing.")
-
-        logging.info(f"User profile saved: {filename}")
 
     except Exception as e:
+        print(f"❌ Error Saving Profile: {e}")
         logging.error(f"Error saving user profile: {e}")
 
 
-# --- 2. SAVE CHAT MESSAGE (Appends to Daily Session File) ---
+# --- 2. SAVE CHAT MESSAGE ---
 def save_message(user_id, user_name, user_phone, user_msg, bot_response):
-    """
-    Reads existing daily file, appends message, saves back.
-    Filename: Chat_{user_id}_{YYYY-MM-DD}.json
-
-    The critical fix is to use the immutable 'user_id' as the main identifier
-    to ensure consistency when retrieving 'existing chats'.
-    """
     try:
-        # 1. Construct Unique Daily Filename
         today = datetime.utcnow().strftime("%Y-%m-%d")
-        safe_name = user_name.replace(" ", "_")
-
-        # --- FIX APPLIED HERE ---
-        # Use the full, stable user_id to guarantee the same file path every time.
-        # This prevents the creation of new files when 'user_phone' is missing
-        # or inconsistent, which was the root cause of the bug.
-        user_file_id = user_id.replace("-", "_")  # Sanitize the ID for the filename
-
-        # New, robust filename based on the canonical user ID and date
+        user_file_id = user_id.replace("-", "_")
         filename = f"Chat_{user_file_id}_{today}.json"
 
         local_path = os.path.join(CHAT_DIR, filename)
         s3_key = f"daily_chats/{filename}"
 
-        # 2. Load Existing Data (if any)
         current_data = []
         if os.path.exists(local_path):
             try:
                 with open(local_path, "r", encoding="utf-8") as f:
                     current_data = json.load(f)
             except json.JSONDecodeError:
-                # Handle corrupted or empty JSON file by starting a new list
-                logging.warning(f"Corrupted or empty file detected at {local_path}. Starting new chat log.")
                 current_data = []
 
-        # 3. Append New Message
         new_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "user_msg": user_msg,
             "bot_response": bot_response,
-            # Optionally include metadata for debugging
             "user_name_at_time": user_name,
             "user_phone_at_time": user_phone
         }
         current_data.append(new_entry)
 
-        # 4. Write Back to Local
         with open(local_path, "w", encoding="utf-8") as f:
             json.dump(current_data, f, indent=2)
 
-        logging.info(f"Chat message appended locally to: {filename}")
+        if S3_BUCKET_NAME:
+            threading.Thread(target=upload_to_s3, args=(local_path, s3_key)).start()
 
-        # 5. Sync to S3 (Threaded)
+    except Exception as e:
+        print(f"❌ Error Saving Chat: {e}")
+        logging.error(f"Error saving chat message: {e}")
+
+
+# --- 3. SAVE SERVICE FORM DETAILS (UPDATED) ---
+def save_service_request(service_data):
+    try:
+        # Generate Filename
+        name = service_data.get("name", "Unknown").replace(" ", "_")
+        service_type = service_data.get("service", "General").replace(" ", "_")
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+        filename = f"Service_{service_type}_{name}_{timestamp}.json"
+
+        if "submitted_at" not in service_data:
+            service_data["submitted_at"] = datetime.utcnow().isoformat()
+
+        # ---------------------------------------------------------
+        # LOCATION 1: Internal Logs (chatbot_data/service_requests)
+        # ---------------------------------------------------------
+        local_path = os.path.join(SERVICE_DIR, filename)
+        s3_key = f"service_requests/{filename}"
+
+        with open(local_path, "w", encoding="utf-8") as f:
+            json.dump(service_data, f, indent=2)
+
+        print(f"✅ Service Request Saved to Logs: {local_path}")
+        logging.info(f"Service request saved locally: {filename}")
+
+        # ---------------------------------------------------------
+        # LOCATION 2: RAG Data Folder (C:\Storage\...\Data)
+        # ---------------------------------------------------------
+        rag_path = os.path.join(RAG_DATA_DIR, filename)
+
+        with open(rag_path, "w", encoding="utf-8") as f:
+            json.dump(service_data, f, indent=2)
+
+        print(f"✅ Service Request Copied to RAG Data Folder: {rag_path}")
+
+        # ---------------------------------------------------------
+        # UPLOAD TO S3 (Using the log file)
+        # ---------------------------------------------------------
         if S3_BUCKET_NAME:
             threading.Thread(target=upload_to_s3, args=(local_path, s3_key)).start()
         else:
-            logging.warning(f"S3 sync skipped for {filename} because bucket name is missing.")
-
+            print("⚠️ S3 Bucket Name missing in .env - Skipping Cloud Upload")
 
     except Exception as e:
-        logging.error(f"Error saving chat message: {e}")
+        print(f"❌ Error Saving Service Request: {e}")
+        logging.error(f"Error saving service request: {e}")

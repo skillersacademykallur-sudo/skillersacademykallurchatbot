@@ -15,7 +15,7 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from src.prompt import *
 
-import batch_store
+import batch_store  # Custom module for saving data
 
 # File/Text libs
 import PyPDF2
@@ -145,7 +145,7 @@ def register_user():
         max_age = 30 * 24 * 60 * 60
         resp.set_cookie("user_id", user_id, max_age=max_age)
         resp.set_cookie("user_name", name, max_age=max_age)
-        resp.set_cookie("user_phone", phone, max_age=max_age)  # <--- Added Phone
+        resp.set_cookie("user_phone", phone, max_age=max_age)
         resp.set_cookie("user_city", city, max_age=max_age)
         resp.set_cookie("user_lat", str(lat), max_age=max_age)
         resp.set_cookie("user_lon", str(lon), max_age=max_age)
@@ -157,6 +157,37 @@ def register_user():
 
 
 # -------------------------------------------------------
+# NEW: SERVICE FORM SUBMISSION ROUTE
+# -------------------------------------------------------
+@app.route("/submit-service", methods=["POST"])
+def submit_service():
+    try:
+        # 1. Extract Data from Form
+        service_data = {
+            "name": request.form.get("svcName"),
+            "phone": request.form.get("svcPhone"),
+            "address": request.form.get("svcAddress"),
+            "state": request.form.get("svcState"),
+            "district": request.form.get("svcDistrict"),
+            "city": request.form.get("svcCity"),
+            "service": request.form.get("svcService"),
+            "details": request.form.get("svcDetails"),
+            "user_id": request.cookies.get("user_id", "Anonymous"),
+            "submitted_at": datetime.utcnow().isoformat()
+        }
+
+        # 2. Log and Save
+        LOG.info(f"Service Request received: {service_data['service']} from {service_data['name']}")
+        batch_store.save_service_request(service_data)
+
+        return jsonify({"status": "success", "message": "Service details saved successfully."})
+
+    except Exception as e:
+        LOG.error(f"Service submission failed: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# -------------------------------------------------------
 # CHAT
 # -------------------------------------------------------
 @app.route("/get", methods=["POST"])
@@ -164,11 +195,9 @@ def chat():
     msg = request.form.get("msg", "").strip()
     user_id = request.cookies.get("user_id", "Anonymous")
 
-    # Retrieve user details for Filename generation
     user_name = request.cookies.get("user_name", "Anonymous")
-    user_phone = request.cookies.get("user_phone", "")  # Required for unique filename
+    user_phone = request.cookies.get("user_phone", "")
 
-    # File Processing
     extracted_text = ""
     if 'file' in request.files:
         f = request.files['file']
@@ -203,7 +232,6 @@ def chat():
     if not final_msg:
         return "I didn't receive any input."
 
-    # Context & History
     user_city = request.cookies.get("user_city", "Unknown City")
     user_lat = request.cookies.get("user_lat", "Unknown")
     user_lon = request.cookies.get("user_lon", "Unknown")
@@ -219,16 +247,14 @@ def chat():
 
     full_input = f"{context_info}\n{history_str}\nCURRENT QUESTION: {final_msg}"
 
-    # AI Response
     result = rag_chain.invoke({"input": full_input})
     response = result.get("answer", "I'm sorry, I couldn't process that.")
 
-    # Update Memory
     if user_id not in chat_sessions: chat_sessions[user_id] = []
     chat_sessions[user_id].append({"user": final_msg, "ai": response})
     if len(chat_sessions[user_id]) > 5: chat_sessions[user_id].pop(0)
 
-    # --- SAVE TO SINGLE DAILY FILE ---
+    # Save Chat
     batch_store.save_message(user_id, user_name, user_phone, final_msg, response)
 
     return str(response)

@@ -108,6 +108,20 @@
  Nonlivingid  ObjectId      ObjectName                                                                                                                                                                              Desciption Departmentid SubCategoryid Address  Pincode  Country Code  Lat  Long     State   City
            1         2 Fertilizer Shop Jahnavi Engencies is the fertilizer shop on the National Highway NH 61. All kinds of fertilizers, pesticides and seeds are available in Kallur Village Opposite to Kallur Power Station  Agriculture      Business  Kallur   504109            91  NaN   NaN Telangana Nirmal
 
+=== FILE: Service_Business_Tikri_IT_Services_Pvt_Ltd_20251122_223342.json ===
+{
+  "name": "Tikri IT Services Pvt Ltd",
+  "phone": "09640035564",
+  "address": "5-20, Burugupalli K, Kallur",
+  "state": "Telangana",
+  "district": "Nirmal",
+  "city": "Nirmal",
+  "service": "Business",
+  "details": "",
+  "user_id": "5ec56a35-03ab-4923-b60b-234d7911ed64",
+  "submitted_at": "2025-11-22T22:33:42.026635"
+}
+
 === FILE: Skillers Academy Kallur info word.docx ===
 Skillers Academy – Kallur
 Data Science Practical Training for U.S. Students – Now Accessible from Your Hometown!
