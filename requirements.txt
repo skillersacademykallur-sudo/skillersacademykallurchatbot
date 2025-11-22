@@ -39,6 +39,8 @@ tqdm==4.66.5
 
 # Word files
 python-docx==1.1.2   # added for .docx support
+docx2txt
 
 # Built-in but listed for clarity
 openpyxl
+pillow

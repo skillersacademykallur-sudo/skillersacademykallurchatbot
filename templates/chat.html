@@ -1,107 +1,221 @@
+<!-- Updated Chatbot HTML with File Upload + Voice Recording -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Skillers Chatbot</title>
-    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
-          integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css"
-          integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5e0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
-
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}"/>
+
+    <style>
+    /* ---------------------- UPDATED CSS BELOW ---------------------- */
+
+    /* File + Voice Button Container */
+    .action_buttons {
+        display: flex;
+        align-items: center;
+        margin-right: 10px;
+        gap: 10px;
+    }
+
+    .action_btn {
+        height: 40px;
+        width: 40px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    .action_btn:hover {
+        background: rgba(255,255,255,0.25);
+    }
+
+    #audioRecordBtn.recording {
+        background: #ff4757 !important;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255,71,87,0.6); }
+        70% { box-shadow: 0 0 10px 12px rgba(255,71,87,0); }
+        100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); }
+    }
+
+    /* Display attached file */
+    .file_preview {
+        color: white;
+        font-size: 13px;
+        margin-top: 5px;
+        opacity: 0.8;
+    }
+    </style>
 </head>
 
 <body>
-    <div class="container-fluid h-100">
-        <div class="row justify-content-center h-100">
-            <div class="col-md-8 col-xl-6 chat">
+    <div class="container-fluid h-100 p-0">
+        <div class="row justify-content-center h-100 m-0">
+            <div class="col-12 col-md-8 col-xl-6 chat p-0">
                 <div class="card">
+
                     <div class="card-header msg_head">
-                        <div class="d-flex bd-highlight">
+                        <div class="d-flex bd-highlight align-items-center">
                             <div class="img_cont">
-                                <img src="static/images/profile.png" class="user_img">
+                                <img src="{{ url_for('static', filename='images/profile.png') }}" class="user_img" alt="Bot Profile">
                                 <span class="online_icon"></span>
                             </div>
-                            <div class="user_info">
-                                <span>Skillers Academy Kallur</span>
-                                <p>AI Assistant Mr.Tikri is here. Ask us anything in any language!</p>
+                            <div class="user_info ml-3">
+                                <span>Skillers Academy</span>
+                                <p>Mr. Tikri AI Assistant</p>
                             </div>
                         </div>
                     </div>
-                    <div id="messageFormeight" class="card-body msg_card_body" style="overflow-y: auto; height: 400px;">
-                        <!-- Messages will be appended here -->
+
+                    <div id="messageFormeight" class="card-body msg_card_body">
+                        <div class="d-flex justify-content-start mb-4">
+                            <div class="img_cont_msg">
+                                <img src="{{ url_for('static', filename='images/profile.png') }}" class="rounded-circle user_img_msg">
+                            </div>
+                            <div class="msg_cotainer">
+                                Hello! I am Mr. Tikri. Ask me anything!
+                                <span class="msg_time">Now</span>
+                            </div>
+                        </div>
+                        <div id="scroll-anchor"></div>
                     </div>
+
                     <div class="card-footer">
-                        <form id="messageArea" class="input-group">
-                            <input type="text" id="text" name="msg" placeholder="Type your message here..."
-                                   autocomplete="off" class="form-control type_msg" required />
+                        <form id="messageArea" class="input-group" enctype="multipart/form-data">
+
+                            <div class="action_buttons">
+                                <!-- File Upload Button -->
+                                <label for="fileInput" class="action_btn"><i class="fas fa-paperclip"></i></label>
+                                <input id="fileInput" type="file" name="file" style="display:none;">
+
+                                <!-- Voice Recording Button -->
+                                <div id="audioRecordBtn" class="action_btn"><i class="fas fa-microphone"></i></div>
+                            </div>
+
+                            <input type="text" id="text" name="msg" placeholder="Type your message..." autocomplete="off" class="form-control type_msg" />
+
                             <div class="input-group-append">
-                                <button type="submit" id="send" class="btn send_btn">
-                                    <i class="fas fa-location-arrow"></i>
-                                </button>
+                                <button type="submit" id="send" class="btn send_btn"><i class="fas fa-paper-plane"></i></button>
                             </div>
                         </form>
+                        <div id="filePreview" class="file_preview"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
     <script>
         $(document).ready(function() {
-            function scrollToTop() {
-                $("#messageFormeight").animate({ scrollTop: 0 }, "slow");
+            function smoothScroll() {
+                document.getElementById("scroll-anchor").scrollIntoView({ behavior: "smooth", block: "end" });
             }
 
-            function scrollToBottom() {
-                $("#messageFormeight").animate({ scrollTop: $("#messageFormeight")[0].scrollHeight }, "slow");
-            }
+            // Show file preview
+            $("#fileInput").on("change", function() {
+                const file = this.files[0];
+                if (file) {
+                    $("#filePreview").text("📎 Attached: " + file.name);
+                }
+            });
 
+            // ---------------------- AUDIO RECORDING ----------------------
+            let recorder, audioBlob;
+            let isRecording = false;
+
+            $("#audioRecordBtn").click(async function () {
+                if (!isRecording) {
+                    // Start Recording
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    recorder = new MediaRecorder(stream);
+
+                    let chunks = [];
+                    recorder.ondataavailable = (e) => chunks.push(e.data);
+                    recorder.onstop = () => audioBlob = new Blob(chunks, { type: "audio/webm" });
+
+                    recorder.start();
+                    isRecording = true;
+                    $(this).addClass("recording");
+                } else {
+                    // Stop Recording
+                    recorder.stop();
+                    isRecording = false;
+                    $(this).removeClass("recording");
+                    $("#filePreview").text("🎤 Voice message ready to send");
+                }
+            });
+
+            // ---------------------- MESSAGE SEND ----------------------
             $("#messageArea").on("submit", function(event) {
                 event.preventDefault();
 
                 const date = new Date();
-                const hour = date.getHours();
-                const minute = date.getMinutes();
-                const str_time = hour + ":" + (minute < 10 ? "0" : "") + minute;
-                var rawText = $("#text").val();
+                const str_time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const rawText = $("#text").val().trim();
+                const file = $("#fileInput")[0].files[0];
 
-                var userHtml = '<div class="d-flex justify-content-end mb-4">' +
-                    '<div class="msg_cotainer_send">' + rawText +
-                    '<span class="msg_time_send">' + str_time + '</span></div>' +
-                    '<div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div></div>';
+                if (!rawText && !file && !audioBlob) return;
 
-                $("#text").val("");
-                $("#messageFormeight").append(userHtml);
+                // Show user bubble
+                let userBubble = rawText || (file ? "📎 Sent file: " + file.name : "🎤 Sent voice message");
 
-                // Auto-scroll to bottom after user sends message
-                scrollToBottom();
+                const userHtml = `
+                <div class="d-flex justify-content-end mb-4">
+                    <div class="msg_cotainer_send">${userBubble}
+                    <span class="msg_time_send">${str_time}</span></div>
+                    <div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div>
+                </div>`;
+
+                $(userHtml).insertBefore("#scroll-anchor");
+                smoothScroll();
+
+                // Prepare form data
+                let formData = new FormData();
+                formData.append("msg", rawText);
+                if (file) formData.append("file", file);
+                if (audioBlob) formData.append("audio", audioBlob, "voice_message.webm");
 
                 $.ajax({
-                    data: { msg: rawText },
-                    type: "POST",
                     url: "/get",
-                }).done(function(data) {
-                    var botHtml = '<div class="d-flex justify-content-start mb-4">' +
-                        '<div class="img_cont_msg"><img src="static/images/profile.png" class="rounded-circle user_img_msg"></div>' +
-                        '<div class="msg_cotainer">' + data +
-                        '<span class="msg_time">' + str_time + '</span></div></div>';
+                    type: "POST",
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        const botHtml = `
+                        <div class="d-flex justify-content-start mb-4">
+                            <div class="img_cont_msg"><img src="{{ url_for('static', filename='images/profile.png') }}" class="rounded-circle user_img_msg"></div>
+                            <div class="msg_cotainer">${data}<span class="msg_time">${str_time}</span></div>
+                        </div>`;
 
-                    $("#messageFormeight").append($.parseHTML(botHtml));
-
-                    // Auto-scroll to bottom after bot responds
-                    scrollToBottom();
+                        $(botHtml).insertBefore("#scroll-anchor");
+                        smoothScroll();
+                    }
                 });
-            });
 
-            // Auto-scroll to the top while typing
-            $("#text").on("input", function() {
-                //scrollToTop();
+                // Reset fields
+                $("#text").val("");
+                $("#fileInput").val("");
+                audioBlob = null;
+                $("#filePreview").text("");
             });
         });
     </script>
-
 </body>
 </html>
+
+<!-- Backend additions will follow -->
