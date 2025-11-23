@@ -16,6 +16,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from src.prompt import *
 
 import batch_store  # Custom module for saving data
+from embedding import run_embedding_job
+from datetime import datetime
+from flask import request, jsonify
+import threading
 
 # File/Text libs
 import PyPDF2
@@ -179,8 +183,11 @@ def submit_service():
         # 2. Log and Save
         LOG.info(f"Service Request received: {service_data['service']} from {service_data['name']}")
         batch_store.save_service_request(service_data)
+        # Run embedding job in background
+        threading.Thread(target=run_embedding_job, daemon=True).start()
 
         return jsonify({"status": "success", "message": "Service details saved successfully."})
+
 
     except Exception as e:
         LOG.error(f"Service submission failed: {e}")

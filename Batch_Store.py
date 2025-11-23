@@ -7,26 +7,30 @@ from dotenv import load_dotenv
 from botocore.exceptions import ClientError
 import logging
 
-# --- PATH CONFIGURATION ---
-CURRENT_DIR = os.getcwd()
+# ---------------------------------------------------
+# BASE DIRECTORY FOR STORING ALL LOG FILES
+# ---------------------------------------------------
+BASE_LOG_DIR = r"C:\Storage\DS\Projects\SkillersChatbotlogfiles"
 
-# 1. Standard Log Paths (For record keeping)
-LOG_DIR = os.path.join(CURRENT_DIR, "chatbot_data")
-CHAT_DIR = os.path.join(LOG_DIR, "daily_chats")
-USER_DIR = os.path.join(LOG_DIR, "user_profiles")
-SERVICE_DIR = os.path.join(LOG_DIR, "service_requests")
+# Standard Log Paths
+LOG_DIR = BASE_LOG_DIR
+CHAT_DIR = os.path.join(BASE_LOG_DIR, "daily_chats")
+USER_DIR = os.path.join(BASE_LOG_DIR, "user_profiles")
+SERVICE_DIR = os.path.join(BASE_LOG_DIR, "service_requests")
 
-# 2. RAG Data Path (For embedding.py)
-# This is the specific folder you requested
+# RAG Data Path (For embedding.py)
 RAG_DATA_DIR = r"C:\Storage\DS\Projects\skillersacademykallurchatbot\Data"
 
 # Create directories if they don't exist
 os.makedirs(CHAT_DIR, exist_ok=True)
 os.makedirs(USER_DIR, exist_ok=True)
 os.makedirs(SERVICE_DIR, exist_ok=True)
-os.makedirs(RAG_DATA_DIR, exist_ok=True)  # Ensure the Data folder exists
+os.makedirs(RAG_DATA_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
 
-# Configure System Logger
+# ---------------------------------------------------
+# LOGGER CONFIGURATION
+# ---------------------------------------------------
 logging.basicConfig(
     filename=os.path.join(LOG_DIR, "system.log"),
     level=logging.INFO,
@@ -36,7 +40,9 @@ logging.basicConfig(
 
 load_dotenv()
 
-# --- S3 Client ---
+# ---------------------------------------------------
+# S3 CLIENT
+# ---------------------------------------------------
 s3 = boto3.client(
     's3',
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -67,7 +73,9 @@ def upload_to_s3(local_path, s3_key):
             return
 
 
-# --- 1. SAVE USER PROFILE ---
+# ---------------------------------------------------
+# 1. SAVE USER PROFILE
+# ---------------------------------------------------
 def save_user_info(user_data):
     try:
         safe_name = user_data.get("name", "Unknown").replace(" ", "_")
@@ -88,7 +96,9 @@ def save_user_info(user_data):
         logging.error(f"Error saving user profile: {e}")
 
 
-# --- 2. SAVE CHAT MESSAGE ---
+# ---------------------------------------------------
+# 2. SAVE CHAT MESSAGE
+# ---------------------------------------------------
 def save_message(user_id, user_name, user_phone, user_msg, bot_response):
     try:
         today = datetime.utcnow().strftime("%Y-%m-%d")
@@ -113,6 +123,7 @@ def save_message(user_id, user_name, user_phone, user_msg, bot_response):
             "user_name_at_time": user_name,
             "user_phone_at_time": user_phone
         }
+
         current_data.append(new_entry)
 
         with open(local_path, "w", encoding="utf-8") as f:
@@ -126,10 +137,11 @@ def save_message(user_id, user_name, user_phone, user_msg, bot_response):
         logging.error(f"Error saving chat message: {e}")
 
 
-# --- 3. SAVE SERVICE FORM DETAILS (UPDATED) ---
+# ---------------------------------------------------
+# 3. SAVE SERVICE REQUEST
+# ---------------------------------------------------
 def save_service_request(service_data):
     try:
-        # Generate Filename
         name = service_data.get("name", "Unknown").replace(" ", "_")
         service_type = service_data.get("service", "General").replace(" ", "_")
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -139,35 +151,25 @@ def save_service_request(service_data):
         if "submitted_at" not in service_data:
             service_data["submitted_at"] = datetime.utcnow().isoformat()
 
-        # ---------------------------------------------------------
-        # LOCATION 1: Internal Logs (chatbot_data/service_requests)
-        # ---------------------------------------------------------
         local_path = os.path.join(SERVICE_DIR, filename)
         s3_key = f"service_requests/{filename}"
 
         with open(local_path, "w", encoding="utf-8") as f:
             json.dump(service_data, f, indent=2)
 
-        print(f"✅ Service Request Saved to Logs: {local_path}")
+        print(f"✅ Service Request Saved: {local_path}")
         logging.info(f"Service request saved locally: {filename}")
 
-        # ---------------------------------------------------------
-        # LOCATION 2: RAG Data Folder (C:\Storage\...\Data)
-        # ---------------------------------------------------------
+        # Copy to RAG folder
         rag_path = os.path.join(RAG_DATA_DIR, filename)
-
         with open(rag_path, "w", encoding="utf-8") as f:
             json.dump(service_data, f, indent=2)
 
-        print(f"✅ Service Request Copied to RAG Data Folder: {rag_path}")
+        print(f"📤 Copied to RAG Data Folder: {rag_path}")
 
-        # ---------------------------------------------------------
-        # UPLOAD TO S3 (Using the log file)
-        # ---------------------------------------------------------
+        # Sync to S3
         if S3_BUCKET_NAME:
             threading.Thread(target=upload_to_s3, args=(local_path, s3_key)).start()
-        else:
-            print("⚠️ S3 Bucket Name missing in .env - Skipping Cloud Upload")
 
     except Exception as e:
         print(f"❌ Error Saving Service Request: {e}")
